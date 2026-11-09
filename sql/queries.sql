@@ -6,6 +6,7 @@
 -- ============================================
 --PERGUNTA 1: Qual o ticket médio por estado?
 -- ============================================
+--
  
   WITH receita_por_pedido AS (
 	SELECT
@@ -92,25 +93,89 @@ FROM clientes_sem_pedido
 -- ============================================
 -- PERGUNTA 5: Qual a evolução mensal do número de pedidos?
 -- ============================================
--- (escreva sua query aqui)
+--
+WITH evolucao_mensal AS (
+	SELECT
+		TO_CHAR(data_pedido, 'MM-YYYY') AS mes,
+		COUNT(pedido_id) AS numero_pedidos
+	FROM pedidos
+	GROUP BY mes
+	ORDER BY mes
+)
+SELECT
+	*
+FROM evolucao_mensal
 
 
 -- ============================================
 -- PERGUNTA 6: Qual categoria tem maior receita média por pedido?
 -- ============================================
--- (escreva sua query aqui)
+--
+WITH categoria_maior_ticket AS (
+	SELECT
+	pr.categoria,
+	SUM(ip.preco_venda * ip.quantidade) AS receita_total,
+	COUNT(DISTINCT pe.pedido_id) AS total_pedidos
+	FROM produtos pr
+	JOIN itens_pedido ip
+	ON ip.produto_id = pr.produto_id
+	JOIN pedidos pe
+	ON pe.pedido_id = ip.pedido_id
+	WHERE pe.status = 'concluido'
+	GROUP BY pr.categoria
+)
+SELECT
+	categoria,
+	ROUND((receita_total / total_pedidos)::numeric, 2) AS receita_media_por_pedido
+FROM categoria_maior_ticket
+ORDER BY receita_media_por_pedido DESC;
 
 
 -- ============================================
 -- PERGUNTA 7: Ranking de clientes por receita total (Top 5)
 -- ============================================
--- (escreva sua query aqui)
+--
+WITH receita_clientes AS (
+	SELECT
+		c.cliente_id,
+		c.nome,
+		SUM(ip.preco_venda * ip.quantidade) receita_total
+	FROM clientes c
+	JOIN pedidos p
+	ON p.cliente_id = c.cliente_id
+	JOIN itens_pedido ip
+	ON ip.pedido_id = p.pedido_id
+	WHERE p.status = 'concluido'
+	GROUP BY c.cliente_id, c.nome
+)
+SELECT 
+    nome,
+    receita_total,
+    RANK() OVER (ORDER BY receita_total DESC) AS posicao
+FROM receita_clientes
+LIMIT 5; 
 
 
 -- ============================================
 -- PERGUNTA 8: Percentual de receita acumulada por mês
 -- ============================================
--- (escreva sua query aqui)
+--
+WITH receita_mensal AS (
+	SELECT
+		TO_CHAR(data_pedido, 'YYYY-MM') AS mes,
+		SUM(ip.preco_venda * ip.quantidade) AS valor
+	FROM pedidos p
+	JOIN itens_pedido ip
+	ON ip.pedido_id = p.pedido_id
+	GROUP BY mes
+)
+SELECT
+	mes,
+	valor AS receita_do_mes,
+	SUM(valor) OVER (ORDER BY mes) AS receita_acumulada,
+	ROUND(SUM(valor) OVER (ORDER BY mes) / SUM(valor) OVER() * 100, 2) AS porcentagem_acumulada
+FROM receita_mensal
+ORDER BY mes
 
 -- ============================================================
 -- FIM DO ARQUIVO
